@@ -2,8 +2,7 @@ name: Cloudflare SSH Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
   deploy:
@@ -18,10 +17,20 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Test SSH Connection
-      run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo Connected successfully from GitHub Actions!"
+    - name: Test Cloudflare SSH Connection
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -o ProxyCommand="cloudflared access ssh --hostname ${{ secrets.SSH_HOST }}" \
+            ${{ secrets.SSH_USER }}@localhost "echo CONNECTED"
 
-    - name: Deploy (test command)
-      run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo Deployment step executed!"
+    - name: Deploy App
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -o ProxyCommand="cloudflared access ssh --hostname ${{ secrets.SSH_HOST }}" \
+            ${{ secrets.SSH_USER }}@localhost "
+              cd /home/dani/myapp &&
+              git pull &&
+              bash deploy.sh
+            "
+
