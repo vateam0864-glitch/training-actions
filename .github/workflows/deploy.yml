@@ -12,6 +12,16 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Install Cloudflared
+      run: |
+        sudo apt-get update
+        sudo apt-get install curl -y
+        curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+          -o cloudflared
+        sudo mv cloudflared /usr/local/bin/cloudflared
+        sudo chmod +x /usr/local/bin/cloudflared
+        cloudflared --version
+
     - name: Setup SSH key
       run: |
         mkdir -p ~/.ssh
@@ -22,7 +32,7 @@ jobs:
       run: |
         ssh -o StrictHostKeyChecking=no \
             -o ProxyCommand="cloudflared access ssh --hostname ${{ secrets.SSH_HOST }}" \
-            ${{ secrets.SSH_USER }}@localhost "echo CONNECTED"
+            ${{ secrets.SSH_USER }}@localhost "echo CF-SSH-CONNECTED"
 
     - name: Deploy App
       run: |
