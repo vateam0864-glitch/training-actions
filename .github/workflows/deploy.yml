@@ -2,45 +2,51 @@ name: Cloudflare SSH Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      CF_HOSTNAME: broader-background-stones-literacy.trycloudflare.com
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Set up job
+        run: echo "Starting Deployment..."
 
-    - name: Install Cloudflared
-      run: |
-        sudo apt-get update
-        sudo apt-get install curl -y
-        curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
-          -o cloudflared
-        sudo mv cloudflared /usr/local/bin/cloudflared
-        sudo chmod +x /usr/local/bin/cloudflared
-        cloudflared --version
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Setup SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+      - name: Install Cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/cloudflared
 
-    - name: Test Cloudflare SSH Connection
-      run: |
-        ssh -o StrictHostKeyChecking=no \
-            -o ProxyCommand="cloudflared access ssh --hostname ${{ secrets.SSH_HOST }}" \
-            ${{ secrets.SSH_USER }}@localhost "echo CF-SSH-CONNECTED"
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/github_actions_key
+          chmod 600 ~/.ssh/github_actions_key
 
-    - name: Deploy App
-      run: |
-        ssh -o StrictHostKeyChecking=no \
-            -o ProxyCommand="cloudflared access ssh --hostname ${{ secrets.SSH_HOST }}" \
-            ${{ secrets.SSH_USER }}@localhost "
-              cd /home/dani/myapp &&
-              git pull &&
-              bash deploy.sh
-            "
+      - name: Test Cloudflare SSH Connection
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -o ProxyCommand="cloudflared access ssh --hostname $CF_HOSTNAME" \
+              dani@localhost "echo 'Connected OK from GitHub Actions!'"
+
+      - name: Deploy App
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -o ProxyCommand="cloudflared access ssh --hostname $CF_HOSTNAME" \
+              dani@localhost "
+                cd /home/dani/myapp &&
+                echo 'GitHub Actions Deployed Successfully!'
+              "
+
+      - name: Complete job
+        run: echo "Deploy Finished!"
 
