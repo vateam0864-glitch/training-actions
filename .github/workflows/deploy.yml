@@ -9,44 +9,42 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      CF_HOSTNAME: broader-background-stones-literacy.trycloudflare.com
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
     steps:
-      - name: Set up job
-        run: echo "Starting Deployment..."
-
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Install cloudflared
       - name: Install Cloudflared
         run: |
-          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
-          chmod +x cloudflared
-          sudo mv cloudflared /usr/local/bin/cloudflared
+          sudo mkdir -p --mode=0755 /usr/share/keyrings
+          curl -fsSL https://packages.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+          echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://packages.cloudflare.com/cloudflared jammy main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+          sudo apt-get update
+          sudo apt-get install cloudflared -y
 
+      # Add SSH key for connecting to your laptop
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/github_actions_key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/github_actions_key
           chmod 600 ~/.ssh/github_actions_key
 
+      # Test connection through Cloudflare tunnel
       - name: Test Cloudflare SSH Connection
         run: |
           ssh -o StrictHostKeyChecking=no \
-              -o ProxyCommand="cloudflared access ssh --hostname $CF_HOSTNAME" \
-              dani@localhost "echo 'Connected OK from GitHub Actions!'"
+            -o ProxyCommand="cloudflared access ssh --hostname authentication-hugh-average-medication.trycloudflare.com" \
+            dani@localhost \
+            "echo Connected Successfully"
 
+      # Deploy (send files or run commands on your laptop)
       - name: Deploy App
         run: |
           ssh -o StrictHostKeyChecking=no \
-              -o ProxyCommand="cloudflared access ssh --hostname $CF_HOSTNAME" \
-              dani@localhost "
-                cd /home/dani/myapp &&
-                echo 'GitHub Actions Deployed Successfully!'
-              "
-
-      - name: Complete job
-        run: echo "Deploy Finished!"
+            -o ProxyCommand="cloudflared access ssh --hostname authentication-hugh-average-medication.trycloudflare.com" \
+            dani@localhost << 'EOF'
+            echo "Running remote commands..."
+            ls -la
+            echo "Deployment done!"
+EOF
 
